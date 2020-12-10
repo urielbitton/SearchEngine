@@ -4,13 +4,14 @@ import re
 import pandas as pd
 from collections import defaultdict, Counter
 from bs4 import BeautifulSoup as soup
+import lxml
 
 #main search engine class that will return relevant docs scraped from the concordia.ca domain
 class SearchEngine(object):
     
     def __init__(self, corpus=""):
         
-        #instantiate corpus, docid,idf,bm25,etc...
+        #hoist corpus, docid,idf,bm25,etc... 
         self.corpus = corpus
         self.docid = dict()
         self.idf = defaultdict(list)
@@ -76,9 +77,9 @@ class SearchEngine(object):
     """
     def html_parser(self, html):
             #Load html document
-            with open(html) as page:
+            with open(html, encoding='UTF-8') as page:  
                 # load into parser
-                data = soup(page, 'html.parser')
+                data = soup(page, 'html.parser', from_encoding='UTF-8')
                 # find content only that has attribute "conetent-main"
                 contentmain = data.find('section', {'id':'content-main'})
                 # filter out script tags and documents without content-main
@@ -236,9 +237,7 @@ class SearchEngine(object):
             bow = self.html_parser(doc_path)
             # skip failed parsing
             if not bow:
-                print(f"Content-main is missing from the following document.\n \
-                      Therefor parsing has failed.\n \
-                      {doc_path}")
+                print(f"Content-main is missing from the following document.\n Parsing has failed.\n {doc_path}")
                 continue
             else:
                 doc_length.append(len(bow))
@@ -312,7 +311,7 @@ class SearchEngine(object):
         payload = dict()
         if not method:
             method = "tfidf"
-        
+         
         if method == "tfidf":
             
             qtfidf = self.query_tfidf(q_string)
@@ -321,10 +320,10 @@ class SearchEngine(object):
 
             # Find the most important query term
             keyword = min(qtfidf)
-            
-#             Sort keywords by weight and create a dict
-#             for key, value in sorted(qtfidf.items(), key=lambda x: x[1]):
-#                 payload[key] = tfidf[key].sort_values()
+            #aborted design ideas that was returning a dictionary with ALL relevant documents per keyword
+            #Sort keywords by weight and create a dict
+            #for key, value in sorted(qtfidf.items(), key=lambda x: x[1]):
+                #payload[key] = tfidf[key].sort_values()
             # Find min value tfidf from query as keyword and sort the results of that column
             payload = tfidf[keyword].sort_values()
             return payload
@@ -335,7 +334,6 @@ class SearchEngine(object):
             self.query_tf_idf = qtfidf
             # Find the most important query term
             keyword = min(qtfidf)
-            #aborted design ideas that was returning a dictionary with ALL relevant documents per keyword
             #Sort keywords by weight and create a dict
             #for key, value in sorted(qtfidf.items(), key=lambda x: x[1]):
             #    payload[key] = tfidf[key].sort_values()
@@ -343,5 +341,71 @@ class SearchEngine(object):
             payload = tfidf[keyword].sort_values()
             return payload
 
-        
-        
+#end of searchEngine class
+
+"""
+To Run the program:
+1. I created a virtual environment - run venv
+2. In IDE, open a new terminal - run command 'python' to start a python CLI
+3. Run command 'import main'
+4. Instantiate the spidy path: path = './spidy/spidy/saved/'
+5. Insantiate a search query variable: search = main.SearchEngine(path)
+6. SearchEngine will start running and the corpus will start being built, wait for 'Corpus built' message
+7. Now you can query what you wish. For example: search.query("which researchers at Concordia worked on COVID 19-related research?", 'tfidf') 
+this will calculate the bm25 index for the given query string. You can even ommit the second parameter if you want and it will calculate by default
+the tf-idf of your query string.
+Other possible querying:
+- search.docid[5]
+- search.idf
+- search.idf_bm25
+- search.tf_bm25
+- search.avgdl
+- search.tfidf
+- search.bm25
+
+"""
+
+
+"""SCRAP IDEAS AND TESTS"""
+
+"""
+results = defaultdict(list)
+count = 0
+for key, value in covid.items():
+    count +=1
+    weight = count / len(covid)
+    value = value.dropna()
+    for docid, tfidf in value.items():
+        if tfidf:
+            results[docid].append(tfidf * weight)
+
+sorted(search.query_tf_idf.items(), key=lambda x: x[1])
+
+# create a ranking scheme
+res_sum = [(key, sum(value)**2/len(value)) for key, value in results.items()]
+# sorted(results.items(), key=lambda x: sum(x[1]), reverse=True)
+sorted(res_sum, key=lambda x: x[1])
+
+
+#Takes the term frequency and inverse document frequency dictionaries.
+#doc_tfidif = tf * idf
+#Returns a Pandas dataframe with docid as index.
+
+def calculate_doc_tfidf(termfreq, invdocfr):
+    tf_idf = defaultdict(list)
+    for docid, doc in termfreq.items():
+        doc = doc[0]
+    
+        for term, tf in doc.items():
+            print(term, tf)
+            doc[term] = tf * invdocfr[term]
+            print(term, doc[term])
+            
+        tf_idf[docid].append(doc)
+    
+    return tf_idf
+
+
+"""
+
+
